@@ -1,4 +1,4 @@
-# jonashaslbeck@gmail.com; May 2020
+# jonashaslbeck@gmail.com; March 12, 2021
 
 # ------------------------------------------------------------------
 # ----------- Psychonetrics Wrapper: Ising model -------------------
@@ -54,7 +54,7 @@ psychonetricsIsing <- function(data_0, data_1, alpha =  0.05) {
       break
     }
   }
-  mod_partialpooled <- curMod %>% prune(alpha = 0.05)
+  mod_partialpooled <- curMod %>% prune(alpha = alpha)
   
   # Select best model:
   mods <- list(mod, mod_prune, mod_union, mod_partialpooled)

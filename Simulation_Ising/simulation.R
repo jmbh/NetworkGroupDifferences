@@ -426,3 +426,4 @@ saveRDS(outlist, file=paste0("Simresults_Ising_Iter", iter, ".RDS"))
 print("Timing: ")
 proc.time()[3] - timer_total
 
+

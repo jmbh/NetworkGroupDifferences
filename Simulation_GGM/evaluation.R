@@ -1,4 +1,4 @@
-# jonashaslbeck@gmail.com; May 2020
+# jonashaslbeck@gmail.com; May 4, 2021
 
 # --------------------------------------------------------------
 # ---------- Load & Prepare Data -------------------------------
@@ -42,6 +42,26 @@ for(i in 1:nIter) {
   a_out[, , 2, n_methods+1, 3, , i] <- l_files[[i]]$truemod_d3$G_diff
   
 } # end for
+
+
+
+
+# --------------------------------------------------------------
+# ---------- Count errors in psychonetrics ---------------------
+# --------------------------------------------------------------
+
+# example of NA in psychonetrics
+a_out[, , 2, 17, 1, 1, 3] 
+a_out[, , 2, 18, 1, 1, 3] 
+
+# Get all NAs
+tb <- table(is.na(a_out[, , 2, 17, , , ]))
+tb / sum(tb)
+
+# Get all NAs conditional on sample size
+tb <- table(is.na(a_out[, , 2, 17, , 8, ]))
+tb / sum(tb)
+# OK: around 1% failure rate for ni > 1
 
 
 # --------------------------------------------------------------
@@ -89,6 +109,9 @@ for(m in 1:n_methods) { # method
 a_P_means <- apply(a_P, 1:4, function(x) mean(x, na.rm = TRUE))
 a_P_freqNA <- apply(a_P, 1:4, function(x) sum(is.na(x)))
 a_P_means[a_P_freqNA > 90] <- NA
+
+# Save aggregate result; we need it for the Sparsity comparison in the appendix
+saveRDS(a_P_means, "Simulation_GGM/GGM_results.RDS")
 
 
 # --------------------------------------------------------------
@@ -279,9 +302,103 @@ legend(.7, legend_y, legend = c(#"MNM BIC",
 dev.off()
 
 
+# --------------------------------------------------------------
+# ---------- Marginal Performance ------------------------------
+# --------------------------------------------------------------
+
+# Marginalize over n and delta theta
+
+method_labels <- c("NCT1", "NCT2", 
+                   "FGL_bic", "FGL_ebic", "FGL_cv",
+                   "BGGM_BF", "BGGM_P_an", "BGGM_P_sa",
+                   "mgm_bic", "mgm_ebic", "mgm_cv", "mgm_bic_or", "mgm_ebic_or", "mgm_cv_or", 
+                   "Fisher1", "Fisher2",
+                   "psychonetrics_al1", "psychonetrics_al2") # this is the order in the vector
+
+methods_labels_proper <- c(c(as.expression(bquote(paste("NCT, ", alpha, " = 0.05"))),
+                             as.expression(bquote(paste("Fisher, ", alpha, " = 0.05")))
+), c(as.expression(bquote(paste("FGL EBIC, ", gamma, " = 0.25"))),
+     "FGL CV",
+     "BGGM, Bayes Factor",
+     "BGGM, Post Diff"),
+c(as.expression(bquote(paste("MNM EBIC, ", gamma, " = 0.25 + AND"))),
+  "MNM CV + AND",
+  as.expression(bquote(paste("MNM EBIC, ", gamma, " = 0.25 + OR"))),
+  "MNM CV + OR"), 
+as.expression(bquote(paste("Partial Pruning, ", alpha, " = 0.05")))) # this is the order in the above figure
+
+
+methods_select <- c(1, 15, 4, 5, 6, 8, 10:11, 13:14, 17) # Select same as in graph above
+method_labels[methods_select] # Sanity check
+
+methods_labels_proper
+
+# Aggregate over N
+a_P_means_aggN <- apply(a_P_means, 1:2, function(x) mean(x, na.rm=TRUE))
+a_P_qntls_aggN <- apply(a_P_means, 1:2, function(x) quantile(x, na.rm=TRUE, probs = c(.25, .75)))
+dim(a_P_means_aggN)
+
+# Overview matrix: est(present)
+m_ov <- matrix(NA, 11, 2)
+m_ov[, 2] <- round(a_P_means_aggN[3, methods_select], 4)
+m_ov[, 1] <- method_labels[methods_select]
+or_1 <- order(m_ov[, 2])
+m_ov_ord <- m_ov[or_1, ]
+
+# Overview matrix: est(absent)
+m_ov2 <- matrix(NA, 11, 2)
+m_ov2[, 2] <- round(a_P_means_aggN[4, methods_select], 4)
+m_ov2[, 1] <- method_labels[methods_select]
+m_ov2_ord <- m_ov2[order(as.numeric(m_ov2[, 2])), ]
+
+
+# Proper figure
+
+sc <- 1.2
+pdf("Simulation_GGM/figures/Fig_Sim_marginal_Gauss.pdf", width=7*sc, height=5*sc)
+
+par(mar=c(9.2,5,2,2))
+plot.new()
+plot.window(ylim=c(0, .15), xlim=c(1,11))
+axis(2, las=2)
+# axis(1, labels = methods_labels_proper[methods_select][or_1], at=1:11, las=2)
+# cols_fix <- rep("black", 11)
+
+axis(1, labels = rep("", 11), at=1:11, 
+     las=2, cex.axis=.8)
+
+cols_fix <- cols[c(1,5,2,2,3,3,4,4,4,4,6)[or_1]]
+for(i in 1:11) axis(1, labels = methods_labels_proper[or_1][i], at=i, 
+                    las=2, cex.axis=.8, col.axis=cols_fix[i])
+
+title(ylab="Estimation error", line=3.5)
+
+## error: present
+# mean
+points(m_ov[, 2][or_1], pch=20, cex=1.3)
+# upper/lower quantile
+segments(x0 = 1:11, y0 = a_P_qntls_aggN[1, 3, ][methods_select][or_1], 
+         x1 = 1:11, y1 = a_P_qntls_aggN[2, 3, ][methods_select][or_1], 
+         lwd=1.5)
+
+
+## error: absent
+# mean
+points(m_ov2[, 2][or_1], pch=20, col="grey", cex=1.3)
+# upper/lower quantile
+segments(x0 = 1:11, y0 = a_P_qntls_aggN[1, 4, ][methods_select][or_1], 
+         x1 = 1:11, y1 = a_P_qntls_aggN[2, 4, ][methods_select][or_1], 
+         col="grey", 
+         lwd=1.5)
+
+legend("topright", legend=c("Mean error (present)", "Mean error (absent)"), 
+       col=c("black", "grey"), pch=c(20,20), bty="n")
+
+
+dev.off()
 
 # --------------------------------------------------------------
-# ---------- Plotting Figure 6 in Appendix ---------------------
+# ---------- Plotting Figure 6 in Appendix (Extended Fig1) -----
 # --------------------------------------------------------------
 
 # This figure shows results of some additional (specifications of) methods
@@ -477,4 +594,125 @@ legend(.755, legend_y, legend = c(#"MNM BIC",
 
 
 dev.off()
+
+
+
+
+
+# --------------------------------------------------------------
+# ---------- Plot Figure: Timing -------------------------------
+# --------------------------------------------------------------
+
+method_labels <- c("NCT1", "NCT2", 
+                   "FGL_bic", "FGL_ebic", "FGL_cv",
+                   "BGGM_BF", "BGGM_P_an", "BGGM_P_sa",
+                   "mgm_bic", "mgm_ebic", "mgm_cv", "mgm_bic_or", "mgm_ebic_or", "mgm_cv_or", 
+                   "Fisher1", "Fisher2",
+                   "psychonetrics_al1", "psychonetrics_al2")
+
+dim(a_time)
+m_timing <- apply(a_time, 1:2, mean)
+colnames(m_timing) <- method_labels
+
+m_timing  <- m_timing / 60
+
+library(RColorBrewer)
+cols <- brewer.pal(8, "Set1")
+cols <- cols[-c(6:7)]
+
+
+sc <- 1.1
+pdf("Simulation_GGM/figures/Figure_Timing_GGM_cmb.pdf", width = 2*6*sc, height=4.5*sc)
+
+par(mfrow=c(1,2))
+
+plot.new()
+plot.window(xlim=c(1,10), ylim=c(0, 20))
+axis(1, n_seq, at=1:10)
+axis(2, las=2)
+
+lwd <- 2
+lines(m_timing[, 2], col=cols[1], lwd=lwd) # NCT
+lines(m_timing[, 10], col=cols[4], lwd=lwd) # mgm with (E)BIC
+lines(m_timing[, 11], col=cols[4], lty=2, lwd=lwd) # mgm with CV
+
+lines(m_timing[, 6], col=cols[3], lwd=lwd) # BGGM: BF
+lines(m_timing[, 7], col=cols[3], lty=2, lwd=lwd) # BGGM: Posterior: analytical
+lines(m_timing[, 8], col=cols[3], lty=3, lwd=lwd) # BGGM: Posterior: sampling
+
+
+lines(m_timing[, 15], col=cols[5], lty=1, lwd=lwd) # Fisher
+
+lines(m_timing[, 4], col=cols[2], lty=1, lwd=lwd) # FGL: (E)BIC
+lines(m_timing[, 5], col=cols[2], lty=2, lwd=lwd) # FGL: CV
+
+lines(m_timing[, 17], col=cols[6], lty=1, lwd=lwd) # FGL: CV
+
+title(xlab="Sample size per Group", ylab="Runtime (minutes)")
+mtext(text = "Running times: GGM", line=1.5, cex=1.3)
+
+legend("topleft", 
+       legend = c("NCT", 
+                  "MNM with (E)BIC", 
+                  "MNM with CV", 
+                  "BGGM with BF", 
+                  "BGGM with Post. Diff. (analytical)",
+                  "BGGM with Post. Diff. (sampling)",
+                  "Fisher", 
+                  "FGL with (E)BIC", 
+                  "FGL with CV", 
+                  "Partial Pruning"), 
+       col=cols[c(1,4,4,3,3,3,5,2,2,6)], 
+       lty=c(1,1,2,1,2,3,1,1,2,1), bty="n", lwd=rep(lwd, 9))
+
+
+# dev.off()
+# sc <- 1.1
+# pdf("Simulation_GGM/figures/Figure_Timing_GGM_noFGL.pdf", width = 6*sc, height=4.5*sc)
+
+plot.new()
+plot.window(xlim=c(1,10), ylim=c(0, 1))
+axis(1, n_seq, at=1:10)
+axis(2, las=2)
+
+lwd <- 2
+lines(m_timing[, 2], col=cols[1], lwd=lwd) # NCT
+lines(m_timing[, 10], col=cols[4], lwd=lwd) # mgm with (E)BIC
+lines(m_timing[, 11], col=cols[4], lty=2, lwd=lwd) # mgm with CV
+
+lines(m_timing[, 6], col=cols[3], lwd=lwd) # BGGM: BF
+lines(m_timing[, 7], col=cols[3], lty=2, lwd=lwd) # BGGM: Posterior: analytical
+lines(m_timing[, 8], col=cols[3], lty=3, lwd=lwd) # BGGM: Posterior: sampling
+
+lines(m_timing[, 15], col=cols[5], lty=1, lwd=lwd) # Fisher
+
+lines(m_timing[, 4], col=cols[2], lty=1, lwd=lwd) # FGL: (E)BIC
+# lines(m_timing[, 5], col=cols[2], lty=2, lwd=lwd) # FGL: CV
+
+lines(m_timing[, 17], col=cols[6], lty=1, lwd=lwd) # psychonetrics
+
+title(xlab="Sample size per Group", ylab="Runtime (minutes)")
+mtext(text = "Running times: GGM (without FGL CV)", line=1.5, cex=1.3)
+
+# legend("topleft", 
+#        legend = c("NCT", 
+#                   "MNM with (E)BIC", 
+#                   "MNM with CV", 
+#                   "BGGM with BF", 
+#                   "BGGM with Post. Diff. (analytical)",
+#                   "BGGM with Post. Diff. (sampling)",
+#                   "Fisher", 
+#                   "FGL with (E)BIC", 
+#                   "Partial Pruning"), 
+#        col=cols[c(1,4,4,3,3,3,5,2,2,6)], 
+#        lty=c(1,1,2,1,2,3,1,1,2,1), bty="n", lwd=rep(lwd, 9))
+
+
+dev.off()
+
+
+
+
+
+
 

@@ -1,4 +1,4 @@
-# jonashaslbeck@gmail.com; May 2020
+# jonashaslbeck@gmail.com; Updated March 9, 2021
 
 # ------------------------------------------------------------------
 # ----------- Psychonetrics Wrapper: GGM ---------------------------
@@ -6,7 +6,7 @@
 
 psychonetricsGGM <- function(data_0, data_1, alpha =  0.05) {
   
-  # Code below in this function is from Sacha Epskamp
+  # Code below in this function is from Sacha Epskamp; updated March 2021
   
   vars <- paste0("V",1:ncol(data_1))
   
@@ -20,55 +20,14 @@ psychonetricsGGM <- function(data_0, data_1, alpha =  0.05) {
   
   data <- rbind(data_0, data_1)
   
-  mod <- ggm(data, group = "group", vars = vars) %>% runmodel
+  
+  mod <- ggm(data, group = "group", vars = vars, standardize = "z") %>% runmodel
   
   # Pruned:
   mod_prune <-  mod %>%
-    prune(alpha = alpha)
+    partialprune(alpha = alpha)
   
-  mod_union <- mod_prune%>%
-    unionmodel %>% # Include edges in each model that were significant in any model
-    groupequal("omega")  %>% # Constrain omega to be equal
-    runmodel # Run the model
-  
-  # Now, iterativly free parameters along modification indices
-  curMod <- mod_union
-  
-  repeat{
-    pars <- curMod@parameters
-    
-    # Make a data frame in which the equality free parameters are summed:
-    miDF <- pars %>% filter(!fixed) %>% group_by(group,row,col,matrix) %>%
-      summarize(mi_free = sum(mi_free)) %>% 
-      arrange(-mi_free)
-    
-    # Free the best parameter:
-    propMod <- curMod %>% 
-      groupfree(miDF$matrix[1],miDF$row[1],miDF$col[1]) %>% 
-      runmodel
-    
-    # Test BIC:
-    if (propMod@fitmeasures$bic < curMod@fitmeasures$bic){
-      curMod <- propMod
-    } else {
-      break
-    }
-  }
-  mod_partialpooled <- curMod %>% prune(alpha = 0.05)
-  
-  # Select best model:
-  mods <- list(mod, mod_prune, mod_union, mod_partialpooled)
-  
-  best <- which.min(c(
-    mod@fitmeasures$bic,
-    mod_prune@fitmeasures$bic,
-    mod_union@fitmeasures$bic,
-    mod_partialpooled@fitmeasures$bic
-  ))
-  
-  bestmod <- mods[[best]]
-  
-  pcordiffs <- bestmod@modelmatrices[[1]]$omega - bestmod@modelmatrices[[2]]$omega
+  pcordiffs <- mod_prune@modelmatrices[[1]]$omega - mod_prune@modelmatrices[[2]]$omega
   
   return(pcordiffs)
   

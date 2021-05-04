@@ -1,4 +1,4 @@
-# jonashaslbeck@gmail.com; May 2020
+# jonashaslbeck@gmail.com; May 4, 2021
 
 # --------------------------------------------------------------
 # ---------- Load Data -----------------------------------------
@@ -89,6 +89,9 @@ a_P_means[a_P_freqNA > 90] <- NA
 # --------------------------------------------------------------
 # ---------- Plot Figure 2 -------------------------------------
 # --------------------------------------------------------------
+
+# n-variations (from simulation)
+n_seq <- round(exp(seq(3, 8.5171, length=10)))
 
 library(RColorBrewer)
 cols <- brewer.pal(5, "Set1")
@@ -222,11 +225,153 @@ legend(0.7, legend_y, legend = c(as.expression(bquote(paste("MNM EBIC, ", gamma,
                                  "MNM CV + AND", 
                                  as.expression(bquote(paste("MNM EBIC, ", gamma, " = 0.25 + OR"))), 
                                  "MNM CV + OR"), 
-col = c(cols[4],cols[4],cols[4],cols[4]), 
-lwd = lwd, lty=c(1:4), 
-bty = "n", cex= legend_cex)
+       col = c(cols[4],cols[4],cols[4],cols[4]), 
+       lwd = lwd, lty=c(1:4), 
+       bty = "n", cex= legend_cex)
 
 dev.off()
+
+
+
+
+
+# --------------------------------------------------------------
+# ---------- Marginal Performance ------------------------------
+# --------------------------------------------------------------
+
+# Marginalize over n and delta theta
+
+method_labels <- c("NCT1", "NCT2", 
+                   "mgm_bic", "mgm_ebic", "mgm_cv", "mgm_bic_or", "mgm_ebic_or", "mgm_cv_or", 
+                   "BGGM_BF", "BGGM_P") # this is the order in the vector
+
+methods_labels_proper <- c(c(as.expression(bquote(paste("NCT, ", alpha, " = 0.05"))), 
+                             as.expression(bquote(paste("NCT, ", alpha, " = 0.01")))),
+                           c(as.expression(bquote(paste("MNM EBIC, ", gamma, " = 0.25 + AND"))),
+                             "MNM CV + AND", 
+                             as.expression(bquote(paste("MNM EBIC, ", gamma, " = 0.25 + OR"))), 
+                             "MNM CV + OR"), 
+                           c("BGGM, Bayes factor",
+                             "BGGM, Post diff")) # this is the order in the above figure
+
+methods_select <- c(1,2,4,5,7,8,9,10) # Select same as in graph above
+method_labels[methods_select] # Sanity check
+n_methods <- length(methods_select)
+methods_labels_proper
+
+# Aggregate over N
+a_P_means_aggN <- apply(a_P_means, 1:2, function(x) mean(x, na.rm=TRUE))
+a_P_qntls_aggN <- apply(a_P_means, 1:2, function(x) quantile(x, na.rm=TRUE, probs = c(.25, .75)))
+dim(a_P_means_aggN)
+
+# Overview matrix: est(present)
+m_ov <- matrix(NA, n_methods, 2)
+m_ov[, 2] <- round(a_P_means_aggN[3, methods_select], 4)
+m_ov[, 1] <- method_labels[methods_select]
+or_1 <- order(m_ov[, 2])
+m_ov_ord <- m_ov[or_1, ]
+
+# Overview matrix: est(absent)
+m_ov2 <- matrix(NA, n_methods, 2)
+m_ov2[, 2] <- round(a_P_means_aggN[4, methods_select], 4)
+m_ov2[, 1] <- method_labels[methods_select]
+m_ov2_ord <- m_ov2[order(as.numeric(m_ov2[, 2])), ]
+
+
+# Proper figure
+
+sc <- 1.2
+pdf("Simulation_Ising/figures/Fig_Sim_marginal_Ising.pdf", width=7*sc*0.9, height=4.8*sc)
+
+par(mar=c(9.2,5,2,2))
+plot.new()
+plot.window(ylim=c(0, .5), xlim=c(1,n_methods))
+axis(2, las=2)
+axis(1, labels = rep("", n_methods), at=1:n_methods, 
+     las=2, cex.axis=.8)
+cols_fix <- cols[c(1,1,4,4,4,4,3,3)[or_1]]
+# cols_fix <- rep("black", n_methods)
+for(i in 1:n_methods) axis(1, labels = methods_labels_proper[or_1][i], at=i, 
+                    las=2, cex.axis=.8, col.axis=cols_fix[i])
+
+title(ylab="Estimation error", line=3.5)
+
+## error: present
+# mean
+points(m_ov[, 2][or_1], pch=20, cex=1.3)
+# upper/lower quantile
+segments(x0 = 1:n_methods, y0 = a_P_qntls_aggN[1, 3, ][methods_select][or_1], 
+         x1 = 1:n_methods, y1 = a_P_qntls_aggN[2, 3, ][methods_select][or_1], 
+         lwd=1.5)
+
+
+## error: absent
+# mean
+points(m_ov2[, 2][or_1], pch=20, col="grey", cex=1.3)
+# upper/lower quantile
+segments(x0 = 1:n_methods, y0 = a_P_qntls_aggN[1, 4, ][methods_select][or_1], 
+         x1 = 1:n_methods, y1 = a_P_qntls_aggN[2, 4, ][methods_select][or_1], 
+         col="grey", 
+         lwd=1.5)
+
+legend("topleft", legend=c("Mean error (present)", "Mean error (absent)"), 
+       col=c("black", "grey"), pch=c(20,20), bty="n")
+
+
+dev.off()
+
+
+
+# --------------------------------------------------------------
+# ---------- Plot Figure: Timing -------------------------------
+# --------------------------------------------------------------
+
+method_labels <- c("NCT1", "NCT2", 
+                   "mgm_bic", "mgm_ebic", "mgm_cv", "mgm_bic_or", "mgm_ebic_or", "mgm_cv_or", 
+                   "BGGM_BF", "BGGM_P")
+
+dim(a_time)
+m_timing <- apply(a_time, 1:2, mean)
+colnames(m_timing) <- method_labels
+
+m_timing  <- m_timing / 60
+
+library(RColorBrewer)
+cols <- brewer.pal(5, "Set1")
+
+
+sc <- 1.1
+pdf("Simulation_Ising/figures/Figure_Timing_Ising.pdf", width = 6*sc, height=4.5*sc)
+
+plot.new()
+plot.window(xlim=c(1,10), ylim=c(0, 40))
+axis(1, n_seq, at=1:10)
+axis(2, las=2)
+
+lwd <- 2
+lines(m_timing[, 2], col=cols[1], lwd=lwd) # NCT
+lines(m_timing[, 3], col=cols[4], lwd=lwd) # mgm with (E)BIC
+lines(m_timing[, 5], col=cols[4], lty=2, lwd=lwd) # mgm with CV
+lines(m_timing[, 9], col=cols[3], lwd=lwd) # BGGM: BF
+lines(m_timing[, 10], col=cols[3], lty=2, lwd=lwd) # BGGM: Posterior
+
+title(xlab="Sample size per Group", ylab="Runtime (minutes)")
+mtext(text = "Running times: Ising Model", line=1.5, cex=1.3)
+
+legend("topleft", 
+       legend = c("NCT", 
+                  "MNM with (E)BIC", 
+                  "MNM with CV", 
+                  "BGGM with BF", 
+                  "BGGM with Post. Diff."), 
+       col=cols[c(1,4,4,3,3)], 
+       lty=c(1,1,2,1,2), bty="n", lwd=rep(lwd, 5))
+
+
+dev.off()
+
+
+
 
 
 
