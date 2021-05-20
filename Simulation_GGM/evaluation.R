@@ -1,4 +1,4 @@
-# jonashaslbeck@gmail.com; May 4, 2021
+# jonashaslbeck@gmail.com; May 20, 2021
 
 # --------------------------------------------------------------
 # ---------- Load & Prepare Data -------------------------------
@@ -355,7 +355,7 @@ m_ov2_ord <- m_ov2[order(as.numeric(m_ov2[, 2])), ]
 # Proper figure
 
 sc <- 1.2
-pdf("Simulation_GGM/figures/Fig_Sim_marginal_Gauss.pdf", width=7*sc, height=5*sc)
+pdf("Simulation_GGM/figures/Fig_Sim_marginal_Gauss.pdf", width=7*sc, height=4.5*sc)
 
 par(mar=c(9.2,5,2,2))
 plot.new()
@@ -369,7 +369,7 @@ axis(1, labels = rep("", 11), at=1:11,
 
 cols_fix <- cols[c(1,5,2,2,3,3,4,4,4,4,6)[or_1]]
 for(i in 1:11) axis(1, labels = methods_labels_proper[or_1][i], at=i, 
-                    las=2, cex.axis=.8, col.axis=cols_fix[i])
+                    las=2, cex.axis=.79, col.axis=cols_fix[i])
 
 title(ylab="Estimation error", line=3.5)
 
@@ -391,8 +391,8 @@ segments(x0 = 1:11, y0 = a_P_qntls_aggN[1, 4, ][methods_select][or_1],
          col="grey", 
          lwd=1.5)
 
-legend("topright", legend=c("Mean error (present)", "Mean error (absent)"), 
-       col=c("black", "grey"), pch=c(20,20), bty="n")
+legend("topright", legend=c("Mean & 25-75% quantiles (present)", "Mean & 25-75% quantiles (absent)"), 
+       col=c("black", "grey"), bty="n", text.col=c("black", "grey"))
 
 
 dev.off()
